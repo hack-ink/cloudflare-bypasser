@@ -39,18 +39,18 @@ fn main() {
         // 1
         {
             let client = {
-                    let headers = {
-                        let mut h = reqwest::header::HeaderMap::new();
-                        h.insert(reqwest::header::COOKIE, cookie);
-                        h.insert(reqwest::header::USER_AGENT, user_agent);
-                        h
-                    };
-                    
-                    reqwest::ClientBuilder::new()
-                        .default_headers(headers)
-                        .build()
-                        .unwrap()
+                let headers = {
+                    let mut h = reqwest::header::HeaderMap::new();
+                    h.insert(reqwest::header::COOKIE, cookie);
+                    h.insert(reqwest::header::USER_AGENT, user_agent);
+                    h
                 };
+                
+                reqwest::ClientBuilder::new()
+                    .default_headers(headers)
+                    .build()
+                    .unwrap()
+            };
                 
             let text = client.get("https://example.com")
                 .send()
@@ -77,19 +77,19 @@ fn main() {
     // with proxy
     {
         let client = {
-                let headers = {
-                    let mut h = reqwest::header::HeaderMap::new();
-                    h.insert(reqwest::header::COOKIE, cookie);
-                    h.insert(reqwest::header::USER_AGENT, user_agent);
-                    h
-                };
-                
-                reqwest::ClientBuilder::new()
-                    .default_headers(headers)
-                    .proxy(reqwest::Proxy::all("http://127.0.0.1:1087").unwrap())
-                    .build()
-                    .unwrap()
+            let headers = {
+                let mut h = reqwest::header::HeaderMap::new();
+                h.insert(reqwest::header::COOKIE, cookie);
+                h.insert(reqwest::header::USER_AGENT, user_agent);
+                h
             };
+            
+            reqwest::ClientBuilder::new()
+                .default_headers(headers)
+                .proxy(reqwest::Proxy::all("http://127.0.0.1:1087").unwrap())
+                .build()
+                .unwrap()
+        };
             
         let text = client.get("https://example.com")
             .send()
