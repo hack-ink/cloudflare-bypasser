@@ -1,6 +1,6 @@
 [package]
 name = "cloudflare-bypasser"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Xavier Lau <c.estlavie@icloud.com>"]
 edition = "2018"
 repository = "https://github.com/AurevoirXavier/cloudflare-bypasser"

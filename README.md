@@ -11,6 +11,8 @@ extern crate cloudflare_bypasser;
 extern crate reqwest;
 
 fn main() {
+    const WEBSITE: &'static str = "https://example.com";
+
     // quick start
     let mut bypasser = {
         cloudflare_nypasser::Bypasser::new()
@@ -27,14 +29,14 @@ fn main() {
 
     let (cookie, user_agent);
         loop {
-            if let Ok((c, ua)) =  bypasser.bypass("http://cosplayjav.pl") {
+            if let Ok((c, ua)) =  bypasser.bypass(WEBSITE) {
                 cookie = c;
                 user_agent = ua;
                 break;
             }
         }
     
-    // without proxy
+    // use reqwest without proxy
     {
         // 1
         {
@@ -52,7 +54,7 @@ fn main() {
                     .unwrap()
             };
                 
-            let text = client.get("https://example.com")
+            let text = client.get(WEBSITE)
                 .send()
                 .unwrap()
                 .text()
@@ -63,7 +65,7 @@ fn main() {
         // 2
         {
             let text = reqwest::Client::new()
-                .get("https://example.com")
+                .get(WEBSITE)
                 .header(reqwest::header::COOKIE, cookie)
                 .header(reqwest::header::USER_AGENT, user_agent)
                 .send()
@@ -74,7 +76,7 @@ fn main() {
         }
     }
     
-    // with proxy
+    // use reqwest with proxy
     {
         let client = {
             let headers = {
@@ -91,7 +93,7 @@ fn main() {
                 .unwrap()
         };
             
-        let text = client.get("https://example.com")
+        let text = client.get(WEBSITE)
             .send()
             .unwrap()
             .text()
