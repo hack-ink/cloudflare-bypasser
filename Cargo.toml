@@ -1,0 +1,15 @@
+[package]
+name = "cloudflare-bypasser"
+version = "0.1.0"
+authors = ["Xavier Lau <c.estlavie@icloud.com>"]
+edition = "2018"
+repository = "https://github.com/AurevoirXavier/fake-useragent"
+description = "User-Agent List, inspired by python module [fake-useragent](https://github.com/hellysmile/fake-useragent)"
+keywords = ["useragent", "user-agent"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+fake-useragent = "0.1.1"
+regex = "1.1.0"
+reqwest = "0.9.9"
+url = "1.7.2"
