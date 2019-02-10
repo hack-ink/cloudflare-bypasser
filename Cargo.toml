@@ -10,7 +10,7 @@ keywords = ["bypass", "cloudflare"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-fake-useragent = "0.1.1"
+fake-useragent = "0.1.2"
 regex = "1.1.0"
 reqwest = "0.9.9"
 url = "1.7.2"
