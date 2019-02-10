@@ -3,9 +3,9 @@ name = "cloudflare-bypasser"
 version = "0.1.0"
 authors = ["Xavier Lau <c.estlavie@icloud.com>"]
 edition = "2018"
-repository = "https://github.com/AurevoirXavier/fake-useragent"
-description = "User-Agent List, inspired by python module [fake-useragent](https://github.com/hellysmile/fake-useragent)"
-keywords = ["useragent", "user-agent"]
+repository = "https://github.com/AurevoirXavier/cloudflare-bypasser"
+description = "A crate to bypass Cloudflare's anti-bot page, inspired by python module [cloudflare-scrape](https://github.com/Anorov/cloudflare-scrape)"
+keywords = ["bypass", "cloudflare"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
