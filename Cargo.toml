@@ -1,10 +1,11 @@
 [package]
 name = "cloudflare-bypasser"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Xavier Lau <c.estlavie@icloud.com>"]
 edition = "2018"
 repository = "https://github.com/AurevoirXavier/cloudflare-bypasser"
 description = "A crate to bypass Cloudflare's anti-bot page, inspired by python module [cloudflare-scrape](https://github.com/Anorov/cloudflare-scrape)"
+readme = "README.md"
 keywords = ["bypass", "cloudflare"]
 license = "MIT/Apache-2.0"
 
