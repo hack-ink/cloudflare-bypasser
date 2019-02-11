@@ -11,6 +11,7 @@ use reqwest::{
 
 pub struct Bypasser<'a> {
     wait: u8,
+    retry: u32,
     proxy: Option<&'a str>,
     user_agent: String,
     client: reqwest::Client,
@@ -21,6 +22,7 @@ impl<'a> Bypasser<'a> {
     pub fn new() -> Bypasser<'a> {
         Bypasser {
             wait: 0,
+            retry: 30,
             proxy: None,
             user_agent: String::new(),
             client: ClientBuilder::new()
@@ -58,6 +60,11 @@ impl<'a> Bypasser<'a> {
 
     pub fn proxy(mut self, address: &'a str) -> Self {
         self.proxy = Some(address);
+        self
+    }
+
+    pub fn retry(mut self, times: u32) -> Self {
+        self.retry = retry;
         self
     }
 
@@ -148,7 +155,7 @@ impl<'a> Bypasser<'a> {
     }
 
     fn solve_challenge(&mut self, url: &str, cookie: &HeaderValue, referer: &str, query: [&str; 3]) -> Result<(HeaderValue, HeaderValue), &str> {
-        let mut retry = 0;
+        let mut retry = 0u32;
         loop {
             match self.client
                 .get(url)
@@ -171,7 +178,7 @@ impl<'a> Bypasser<'a> {
             }
 
             retry += 1;
-            if retry == 10 { return Err("Failed after 10 retries."); }
+            if retry == self.retry { return Err(&format!("Failed after {} retries.", self.retry)); }
         }
     }
 
