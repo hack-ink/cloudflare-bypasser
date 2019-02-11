@@ -64,7 +64,7 @@ impl<'a> Bypasser<'a> {
     }
 
     pub fn retry(mut self, times: u32) -> Self {
-        self.retry = retry;
+        self.retry = times;
         self
     }
 
