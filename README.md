@@ -4,6 +4,10 @@
 
 Inspired by python module [cloudflare-scrape](https://github.com/Anorov/cloudflare-scrape)
 
+## Require
+
+- **Node.js**
+
 ## Example
 
 ```rust
@@ -27,6 +31,7 @@ fn main() {
             .wait(5);                       // cloudflare's waiting time, but in my test it can be 0, default 0
     };                           
 
+    // to pass the verify both of the cookie and user agent are needed
     let (cookie, user_agent);
         loop {
             if let Ok((c, ua)) =  bypasser.bypass(WEBSITE) {
