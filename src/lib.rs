@@ -178,7 +178,7 @@ impl<'a> Bypasser<'a> {
             }
 
             retry += 1;
-            if retry == self.retry { return Err("reach max retry times"); }
+            if retry == self.retry { return Err("reach max retries"); }
         }
     }
 
