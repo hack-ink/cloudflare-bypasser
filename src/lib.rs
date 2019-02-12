@@ -146,10 +146,10 @@ impl<'a> Bypasser<'a> {
                                 resp.headers()[SET_COOKIE].to_owned()
                             );
                         }
-                        Err(e) => println!("{:?}", e)
+                        Err(e) => println!("At request_challenge(), text() {:?}", e)
                     }
                 }
-                Err(e) => println!("{:?}", e)
+                Err(e) => println!("At, request_challenge(), send() {:?}", e)
             }
         }
     }
