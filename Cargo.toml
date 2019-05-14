@@ -1,6 +1,6 @@
 [package]
 name = "cloudflare-bypasser"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Xavier Lau <c.estlavie@icloud.com>"]
 edition = "2018"
 repository = "https://github.com/AurevoirXavier/cloudflare-bypasser"
@@ -10,7 +10,8 @@ keywords = ["bypass", "cloudflare"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
+base64 = "0.10.1"
 fake-useragent = "0.1.2"
-regex = "1.1.0"
-reqwest = "0.9.9"
+regex = "1.1.6"
+reqwest = "0.9.16"
 url = "1.7.2"

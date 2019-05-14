@@ -1,8 +1,11 @@
+extern crate base64;
 extern crate fake_useragent;
 extern crate regex;
 extern crate reqwest;
 extern crate url;
 
+// --- std ---
+use std::time::Duration;
 // --- external ---
 use reqwest::{
     ClientBuilder,
@@ -22,7 +25,7 @@ impl<'a> Bypasser<'a> {
     pub fn new() -> Bypasser<'a> {
         Bypasser {
             wait: 0,
-            retry: 30,
+            retry: 1,
             proxy: None,
             user_agent: String::new(),
             client: ClientBuilder::new()
@@ -73,60 +76,78 @@ impl<'a> Bypasser<'a> {
             .danger_accept_invalid_certs(true)
             .danger_accept_invalid_hostnames(true)
             .gzip(true)
-            .redirect(reqwest::RedirectPolicy::none());
+            .redirect(reqwest::RedirectPolicy::none())
+            .timeout(Duration::from_secs(30));
         if let Some(address) = self.proxy { client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap()); }
         self.client = client_builder.build().unwrap();
         self
     }
 
-    fn parse_challenge(html: &str) -> (String, String) {
-        // --- external ---
-        use regex::Regex;
-
-        let jschl_vc = Regex::new(r#"name="jschl_vc" value="(\w+)""#)
+    fn parse_challenge(html: &str) -> Vec<(String, String)> {
+        regex::Regex::new(r#"name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)""#)
             .unwrap()
-            .captures(html)
-            .unwrap()[1]
-            .to_owned();
-        let pass = Regex::new(r#"name="pass" value="(.+?)""#)
-            .unwrap()
-            .captures(html)
-            .unwrap()[1]
-            .to_owned();
-
-        (jschl_vc, pass)
+            .captures_iter(html)
+            .map(|caps| (caps[1].to_owned(), caps[2].to_owned()))
+            .collect()
     }
 
-    fn parse_js(html: &str, domain_len: usize) -> String {
+    fn parse_js(html: &str, domain: &str) -> String {
         // --- external ---
         use regex::Regex;
 
-        let js = &Regex::new(r#"setTimeout\(function\(\)\{\s+(var s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n"#)
+        let challenge = &Regex::new(r#"setTimeout\(function\(\)\{\s+(var s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n"#)
             .unwrap()
             .captures(html)
             .unwrap()[1];
-        let js = &Regex::new(r#"a\.value = (.+ \+ t\.length).+"#)
-            .unwrap()
-            .replace_all(js, "$1");
-        let js = &Regex::new(r#"\s{3,}[a-z](?: = |\.).+"#)
-            .unwrap()
-            .replace_all(js, "")
-            .replace('\n', "")
-            .replace("t.length", &domain_len.to_string());
+        let inner_html = if let Some(caps) = Regex::new(r#"<div(?: [^<>]*)? id=\\"cf-dn.*?\\">([^<>]*)"#).unwrap().captures(html){ caps[1].to_owned() } else { String::new() };
+        let challenge = base64::encode(&format!(
+            r#"
+                var document = {{
+                    createElement: function () {{
+                        return {{ firstChild: {{ href: "http://{}/" }} }}
+                    }},
+                    getElementById: function () {{
+                        return {{"innerHTML": "{}"}};
+                    }}
+                }};
+                {}; a.value
+            "#,
+            domain,
+            inner_html,
+            challenge
+        ));
 
-        format!("console.log(require('vm').runInNewContext('{}', Object.create(null), {{timeout: 5000}}));", js)
+        format!(
+            r#"
+                var atob = Object.setPrototypeOf(function (str) {{
+                    try {{
+                        return Buffer.from("" + str, "base64").toString("binary");
+                    }} catch (e) {{}}
+                }}, null);
+                var challenge = atob("{}");
+                var context = Object.setPrototypeOf({{ atob: atob }}, null);
+                var options = {{
+                    filename: "iuam-challenge.js",
+                    contextOrigin: "cloudflare:iuam-challenge.js",
+                    contextCodeGeneration: {{ strings: true, wasm: false }},
+                    timeout: 5000
+                }};
+                process.stdout.write(String(
+                    require("vm").runInNewContext(challenge, context, options)
+                ));
+            "#,
+            challenge
+        )
     }
 
     fn run_js(js: &str) -> String {
-        let mut result = String::from_utf8(
+        String::from_utf8(
             std::process::Command::new("node")
                 .args(&["-e", js])
                 .output()
                 .unwrap()
                 .stdout
-        ).unwrap();
-        result.pop().unwrap();
-        result
+        ).unwrap()
     }
 
     fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue) {
@@ -154,7 +175,7 @@ impl<'a> Bypasser<'a> {
         }
     }
 
-    fn solve_challenge(&mut self, url: &str, cookie: &HeaderValue, referer: &str, query: [&str; 3]) -> Result<(HeaderValue, HeaderValue), &str> {
+    fn solve_challenge(&mut self, url: &str, cookie: &HeaderValue, referer: &str, params: &[(String, String)]) -> Result<(HeaderValue, HeaderValue), &str> {
         let mut retry = 0u32;
         loop {
             match self.client
@@ -162,11 +183,7 @@ impl<'a> Bypasser<'a> {
                 .header(COOKIE, cookie)
                 .header(REFERER, referer)
                 .header(USER_AGENT, self.user_agent.as_str())
-                .query(&[
-                    ("jschl_vc", query[0]),
-                    ("pass", query[1]),
-                    ("jschl_answer", query[2])
-                ])
+                .query(params)
                 .send() {
                 Ok(resp) => if resp.headers().contains_key(SET_COOKIE) {
                     return Ok((
@@ -183,20 +200,22 @@ impl<'a> Bypasser<'a> {
     }
 
     pub fn bypass(&mut self, url: &str) -> Result<(HeaderValue, HeaderValue), &str> {
-        std::thread::sleep(std::time::Duration::from_secs(self.wait as u64));
+        std::thread::sleep(Duration::from_secs(self.wait as u64));
 
         let (html, referer, cookie) = self.request_challenge(url);
         let (challenge_url, domain) = {
             let url = url::Url::parse(url).unwrap();
             let domain = url.domain().unwrap().to_owned();
+
             (format!("{}://{}/cdn-cgi/l/chk_jschl", url.scheme(), domain), domain)
         };
-        let (jschl_vc, pass) = Bypasser::parse_challenge(&html);
-        let jschl_answer = {
-            let js = Bypasser::parse_js(&html, domain.len());
-            Bypasser::run_js(&js)
+        let params =  {
+            let mut p = Bypasser::parse_challenge(&html);
+            p.push((String::from("jschl_answer"), Bypasser::run_js(&Bypasser::parse_js(&html, &domain))));
+
+            p
         };
 
-        self.solve_challenge(&challenge_url, &cookie, &referer, [&jschl_vc, &pass, &jschl_answer])
+        self.solve_challenge(&challenge_url, &cookie, &referer, &params)
     }
 }
