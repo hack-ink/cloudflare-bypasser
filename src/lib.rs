@@ -158,13 +158,15 @@ impl<'a> Bypasser<'a> {
                 .get(url)
                 .header(USER_AGENT, self.user_agent.as_str())
                 .send() {
-                Ok(mut resp) => {
+                Ok(resp) => {
+                    let url = resp.url().as_str().to_owned();
+                    let cookie = resp.headers()[SET_COOKIE].to_owned();
                     match resp.text() {
                         Ok(text) => {
                             return (
                                 text,
-                                resp.url().as_str().to_owned(),
-                                resp.headers()[SET_COOKIE].to_owned()
+                                url,
+                                cookie,
                             );
                         }
                         Err(e) => println!("At request_challenge() text(), {:?}", e)
