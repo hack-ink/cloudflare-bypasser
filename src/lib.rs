@@ -76,7 +76,7 @@ impl<'a> Bypasser<'a> {
             .danger_accept_invalid_certs(true)
             .danger_accept_invalid_hostnames(true)
             .gzip(true)
-            .redirect(reqwest::RedirectPolicy::none())
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(30));
         if let Some(address) = self.proxy { client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap()); }
         self.client = client_builder.build().unwrap();
