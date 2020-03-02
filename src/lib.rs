@@ -9,7 +9,7 @@ use std::time::Duration;
 // --- external ---
 use reqwest::{
     blocking::ClientBuilder,
-    header::{COOKIE, REFERER, SET_COOKIE, USER_AGENT, HeaderValue},
+    header::{HeaderValue, COOKIE, REFERER, SET_COOKIE, USER_AGENT},
 };
 
 pub struct Bypasser<'a> {
@@ -50,13 +50,17 @@ impl<'a> Bypasser<'a> {
 
     pub fn random_user_agent(mut self, flag: bool) -> Self {
         if flag {
-            self.user_agents = Some(fake_useragent::UserAgentsBuilder::new()
-                .cache(false)
-                .set_browsers(fake_useragent::Browsers::new()
-                    .set_chrome()
-                    .set_firefox()
-                    .set_safari())
-                .build());
+            self.user_agents = Some(
+                fake_useragent::UserAgentsBuilder::new()
+                    .cache(false)
+                    .set_browsers(
+                        fake_useragent::Browsers::new()
+                            .set_chrome()
+                            .set_firefox()
+                            .set_safari(),
+                    )
+                    .build(),
+            );
         }
         self
     }
@@ -78,7 +82,9 @@ impl<'a> Bypasser<'a> {
             .gzip(true)
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(30));
-        if let Some(address) = self.proxy { client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap()); }
+        if let Some(address) = self.proxy {
+            client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap());
+        }
         self.client = client_builder.build().unwrap();
         self
     }
@@ -99,7 +105,15 @@ impl<'a> Bypasser<'a> {
             .unwrap()
             .captures(html)
             .unwrap()[1];
-        let inner_html = if let Some(caps) = Regex::new(r#"<div(?: [^<>]*)? id=\\"cf-dn.*?\\">([^<>]*)"#).unwrap().captures(html){ caps[1].to_owned() } else { String::new() };
+        let inner_html = if let Some(caps) =
+            Regex::new(r#"<div(?: [^<>]*)? id=\\"cf-dn.*?\\">([^<>]*)"#)
+                .unwrap()
+                .captures(html)
+        {
+            caps[1].to_owned()
+        } else {
+            String::new()
+        };
         let challenge = base64::encode(&format!(
             r#"
                 var document = {{
@@ -112,9 +126,7 @@ impl<'a> Bypasser<'a> {
                 }};
                 {}; a.value
             "#,
-            domain,
-            inner_html,
-            challenge
+            domain, inner_html, challenge
         ));
 
         format!(
@@ -146,58 +158,71 @@ impl<'a> Bypasser<'a> {
                 .args(&["-e", js])
                 .output()
                 .unwrap()
-                .stdout
-        ).unwrap()
+                .stdout,
+        )
+        .unwrap()
     }
 
     fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue) {
         self.build_client();
-        if let Some(ref user_agents) = self.user_agents { self.user_agent = user_agents.random().to_string(); }
+        if let Some(ref user_agents) = self.user_agents {
+            self.user_agent = user_agents.random().to_string();
+        }
         loop {
-            match self.client
+            match self
+                .client
                 .get(url)
                 .header(USER_AGENT, self.user_agent.as_str())
-                .send() {
+                .send()
+            {
                 Ok(resp) => {
                     let url = resp.url().as_str().to_owned();
                     let cookie = resp.headers()[SET_COOKIE].to_owned();
                     match resp.text() {
                         Ok(text) => {
-                            return (
-                                text,
-                                url,
-                                cookie,
-                            );
+                            return (text, url, cookie);
                         }
-                        Err(e) => println!("At request_challenge() text(), {:?}", e)
+                        Err(e) => println!("At request_challenge() text(), {:?}", e),
                     }
                 }
-                Err(e) => println!("At, request_challenge() send(), {:?}", e)
+                Err(e) => println!("At, request_challenge() send(), {:?}", e),
             }
         }
     }
 
-    fn solve_challenge(&mut self, url: &str, cookie: &HeaderValue, referer: &str, params: &[(String, String)]) -> Result<(HeaderValue, HeaderValue), &str> {
+    fn solve_challenge(
+        &mut self,
+        url: &str,
+        cookie: &HeaderValue,
+        referer: &str,
+        params: &[(String, String)],
+    ) -> Result<(HeaderValue, HeaderValue), &str> {
         let mut retry = 0u32;
         loop {
-            match self.client
+            match self
+                .client
                 .get(url)
                 .header(COOKIE, cookie)
                 .header(REFERER, referer)
                 .header(USER_AGENT, self.user_agent.as_str())
                 .query(params)
-                .send() {
-                Ok(resp) => if resp.headers().contains_key(SET_COOKIE) {
-                    return Ok((
-                        resp.headers()[SET_COOKIE].to_owned(),
-                        self.user_agent.parse().unwrap(),
-                    ));
+                .send()
+            {
+                Ok(resp) => {
+                    if resp.headers().contains_key(SET_COOKIE) {
+                        return Ok((
+                            resp.headers()[SET_COOKIE].to_owned(),
+                            self.user_agent.parse().unwrap(),
+                        ));
+                    }
                 }
-                Err(e) => println!("{:?}", e)
+                Err(e) => println!("{:?}", e),
             }
 
             retry += 1;
-            if retry == self.retry { return Err("reach max retries"); }
+            if retry == self.retry {
+                return Err("reach max retries");
+            }
         }
     }
 
@@ -209,11 +234,17 @@ impl<'a> Bypasser<'a> {
             let url = url::Url::parse(url).unwrap();
             let domain = url.domain().unwrap().to_owned();
 
-            (format!("{}://{}/cdn-cgi/l/chk_jschl", url.scheme(), domain), domain)
+            (
+                format!("{}://{}/cdn-cgi/l/chk_jschl", url.scheme(), domain),
+                domain,
+            )
         };
-        let params =  {
+        let params = {
             let mut p = Bypasser::parse_challenge(&html);
-            p.push((String::from("jschl_answer"), Bypasser::run_js(&Bypasser::parse_js(&html, &domain))));
+            p.push((
+                String::from("jschl_answer"),
+                Bypasser::run_js(&Bypasser::parse_js(&html, &domain)),
+            ));
 
             p
         };
