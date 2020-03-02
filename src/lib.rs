@@ -8,7 +8,7 @@ extern crate url;
 use std::time::Duration;
 // --- external ---
 use reqwest::{
-    ClientBuilder,
+    blocking::ClientBuilder,
     header::{COOKIE, REFERER, SET_COOKIE, USER_AGENT, HeaderValue},
 };
 
@@ -17,7 +17,7 @@ pub struct Bypasser<'a> {
     retry: u32,
     proxy: Option<&'a str>,
     user_agent: String,
-    client: reqwest::Client,
+    client: reqwest::blocking::Client,
     user_agents: Option<fake_useragent::UserAgents>,
 }
 
