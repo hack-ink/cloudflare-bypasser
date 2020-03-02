@@ -21,8 +21,8 @@ pub struct Bypasser<'a> {
     user_agents: Option<fake_useragent::UserAgents>,
 }
 
-impl<'a> Bypasser<'a> {
-    pub fn new() -> Bypasser<'a> {
+impl<'a> Default for Bypasser<'a> {
+    fn default() -> Self {
         Bypasser {
             wait: 0,
             retry: 1,
@@ -37,7 +37,9 @@ impl<'a> Bypasser<'a> {
             user_agents: None,
         }
     }
+}
 
+impl<'a> Bypasser<'a> {
     pub fn wait(mut self, secs: u8) -> Self {
         self.wait = secs;
         self
