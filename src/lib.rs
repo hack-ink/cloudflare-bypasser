@@ -165,7 +165,7 @@ impl<'a> Bypasser<'a> {
         .unwrap()
     }
 
-    fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue) {
+    fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue, String) {
         self.build_client();
         if let Some(ref user_agents) = self.user_agents {
             self.user_agent = user_agents.random().to_string();
@@ -182,7 +182,12 @@ impl<'a> Bypasser<'a> {
                     let cookie = resp.headers()[SET_COOKIE].to_owned();
                     match resp.text() {
                         Ok(text) => {
-                            return (text, url, cookie);
+                            let path = regex::Regex::new(r#"id="challenge-form" action="([^"]*)""#)
+                                .unwrap()
+                                .captures(&text)
+                                .unwrap()[1]
+                                .into();
+                            return (text, url, cookie, path);
                         }
                         Err(e) => println!("At request_challenge() text(), {:?}", e),
                     }
@@ -231,15 +236,12 @@ impl<'a> Bypasser<'a> {
     pub fn bypass(&mut self, url: &str) -> Result<(HeaderValue, HeaderValue), &str> {
         std::thread::sleep(Duration::from_secs(self.wait as u64));
 
-        let (html, referer, cookie) = self.request_challenge(url);
+        let (html, referer, cookie, path) = self.request_challenge(url);
         let (challenge_url, domain) = {
             let url = url::Url::parse(url).unwrap();
             let domain = url.domain().unwrap().to_owned();
 
-            (
-                format!("{}://{}/cdn-cgi/l/chk_jschl", url.scheme(), domain),
-                domain,
-            )
+            (format!("{}://{}{}", url.scheme(), domain, path), domain)
         };
         let params = {
             let mut p = Bypasser::parse_challenge(&html);
