@@ -24,7 +24,7 @@ pub struct Bypasser<'a> {
 impl<'a> Default for Bypasser<'a> {
     fn default() -> Self {
         Bypasser {
-            wait: 0,
+            wait: 3,
             retry: 1,
             proxy: None,
             user_agent: String::new(),
