@@ -208,11 +208,11 @@ impl<'a> Bypasser<'a> {
         loop {
             match self
                 .client
-                .get(url)
+                .post(url)
                 .header(COOKIE, cookie)
                 .header(REFERER, referer)
                 .header(USER_AGENT, self.user_agent.as_str())
-                .query(params)
+                .form(params)
                 .send()
             {
                 Ok(resp) => {
