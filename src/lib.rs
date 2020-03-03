@@ -212,9 +212,8 @@ impl<'a> Bypasser<'a> {
     }
 
     pub fn bypass(&mut self, url: &str) -> Result<(HeaderValue, HeaderValue), &str> {
-        std::thread::sleep(Duration::from_secs(self.wait as u64));
-
         let (html, referer, cookie, path) = self.request_challenge(url);
+
         let (challenge_url, domain) = {
             let url = url::Url::parse(url).unwrap();
             let domain = url.domain().unwrap().to_owned();
@@ -230,6 +229,8 @@ impl<'a> Bypasser<'a> {
 
             p
         };
+
+        std::thread::sleep(Duration::from_secs(self.wait as u64));
 
         self.solve_challenge(&challenge_url, &cookie, &referer, &params)
     }
