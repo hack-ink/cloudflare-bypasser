@@ -92,7 +92,7 @@ impl<'a> Bypasser<'a> {
     }
 
     fn parse_challenge(html: &str) -> Vec<(String, String)> {
-        regex::Regex::new(r#"name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)""#)
+        regex::Regex::new(r#"name="(r|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)""#)
             .unwrap()
             .captures_iter(html)
             .map(|caps| (caps[1].to_owned(), caps[2].to_owned()))
