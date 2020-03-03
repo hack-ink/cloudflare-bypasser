@@ -116,7 +116,7 @@ impl<'a> Bypasser<'a> {
         } else {
             String::new()
         };
-        let challenge = base64::encode(&format!(
+        format!(
             r#"
                 var document = {{
                     createElement: function () {{
@@ -126,31 +126,9 @@ impl<'a> Bypasser<'a> {
                         return {{"innerHTML": "{}"}};
                     }}
                 }};
-                {}; a.value
+                {}; process.stdout.write(a.value);
             "#,
             domain, inner_html, challenge
-        ));
-
-        format!(
-            r#"
-                var atob = Object.setPrototypeOf(function (str) {{
-                    try {{
-                        return Buffer.from("" + str, "base64").toString("binary");
-                    }} catch (e) {{}}
-                }}, null);
-                var challenge = atob("{}");
-                var context = Object.setPrototypeOf({{ atob: atob }}, null);
-                var options = {{
-                    filename: "iuam-challenge.js",
-                    contextOrigin: "cloudflare:iuam-challenge.js",
-                    contextCodeGeneration: {{ strings: true, wasm: false }},
-                    timeout: 5000
-                }};
-                process.stdout.write(String(
-                    require("vm").runInNewContext(challenge, context, options)
-                ));
-            "#,
-            challenge
         )
     }
 
