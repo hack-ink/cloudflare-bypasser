@@ -108,7 +108,7 @@ impl<'a> Bypasser<'a> {
             .captures(html)
             .unwrap()[1];
         let inner_html = if let Some(caps) =
-            Regex::new(r#"<div(?: [^<>]*)? id=\\"cf-dn.*?\\">([^<>]*)"#)
+            Regex::new(r#"<div(?: [^<>]*)? id="cf-dn.*?">([^<>]*)"#)
                 .unwrap()
                 .captures(html)
         {
