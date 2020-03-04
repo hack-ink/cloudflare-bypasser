@@ -8,8 +8,8 @@ extern crate url;
 use std::time::Duration;
 // --- external ---
 use reqwest::{
-    ClientBuilder,
-    header::{COOKIE, REFERER, SET_COOKIE, USER_AGENT, HeaderValue},
+    blocking::ClientBuilder,
+    header::{HeaderValue, COOKIE, REFERER, SET_COOKIE, USER_AGENT},
 };
 
 pub struct Bypasser<'a> {
@@ -17,14 +17,14 @@ pub struct Bypasser<'a> {
     retry: u32,
     proxy: Option<&'a str>,
     user_agent: String,
-    client: reqwest::Client,
+    client: reqwest::blocking::Client,
     user_agents: Option<fake_useragent::UserAgents>,
 }
 
-impl<'a> Bypasser<'a> {
-    pub fn new() -> Bypasser<'a> {
+impl<'a> Default for Bypasser<'a> {
+    fn default() -> Self {
         Bypasser {
-            wait: 0,
+            wait: 3,
             retry: 1,
             proxy: None,
             user_agent: String::new(),
@@ -37,7 +37,9 @@ impl<'a> Bypasser<'a> {
             user_agents: None,
         }
     }
+}
 
+impl<'a> Bypasser<'a> {
     pub fn wait(mut self, secs: u8) -> Self {
         self.wait = secs;
         self
@@ -50,13 +52,17 @@ impl<'a> Bypasser<'a> {
 
     pub fn random_user_agent(mut self, flag: bool) -> Self {
         if flag {
-            self.user_agents = Some(fake_useragent::UserAgentsBuilder::new()
-                .cache(false)
-                .set_browsers(fake_useragent::Browsers::new()
-                    .set_chrome()
-                    .set_firefox()
-                    .set_safari())
-                .build());
+            self.user_agents = Some(
+                fake_useragent::UserAgentsBuilder::new()
+                    .cache(false)
+                    .set_browsers(
+                        fake_useragent::Browsers::new()
+                            .set_chrome()
+                            .set_firefox()
+                            .set_safari(),
+                    )
+                    .build(),
+            );
         }
         self
     }
@@ -76,15 +82,17 @@ impl<'a> Bypasser<'a> {
             .danger_accept_invalid_certs(true)
             .danger_accept_invalid_hostnames(true)
             .gzip(true)
-            .redirect(reqwest::RedirectPolicy::none())
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(30));
-        if let Some(address) = self.proxy { client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap()); }
+        if let Some(address) = self.proxy {
+            client_builder = client_builder.proxy(reqwest::Proxy::all(address).unwrap());
+        }
         self.client = client_builder.build().unwrap();
         self
     }
 
     fn parse_challenge(html: &str) -> Vec<(String, String)> {
-        regex::Regex::new(r#"name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)""#)
+        regex::Regex::new(r#"name="(r|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)""#)
             .unwrap()
             .captures_iter(html)
             .map(|caps| (caps[1].to_owned(), caps[2].to_owned()))
@@ -99,8 +107,16 @@ impl<'a> Bypasser<'a> {
             .unwrap()
             .captures(html)
             .unwrap()[1];
-        let inner_html = if let Some(caps) = Regex::new(r#"<div(?: [^<>]*)? id=\\"cf-dn.*?\\">([^<>]*)"#).unwrap().captures(html){ caps[1].to_owned() } else { String::new() };
-        let challenge = base64::encode(&format!(
+        let inner_html = if let Some(caps) =
+            Regex::new(r#"<div(?: [^<>]*)? id="cf-dn.*?">([^<>]*)"#)
+                .unwrap()
+                .captures(html)
+        {
+            caps[1].to_owned()
+        } else {
+            String::new()
+        };
+        format!(
             r#"
                 var document = {{
                     createElement: function () {{
@@ -110,33 +126,9 @@ impl<'a> Bypasser<'a> {
                         return {{"innerHTML": "{}"}};
                     }}
                 }};
-                {}; a.value
+                {}; process.stdout.write(a.value);
             "#,
-            domain,
-            inner_html,
-            challenge
-        ));
-
-        format!(
-            r#"
-                var atob = Object.setPrototypeOf(function (str) {{
-                    try {{
-                        return Buffer.from("" + str, "base64").toString("binary");
-                    }} catch (e) {{}}
-                }}, null);
-                var challenge = atob("{}");
-                var context = Object.setPrototypeOf({{ atob: atob }}, null);
-                var options = {{
-                    filename: "iuam-challenge.js",
-                    contextOrigin: "cloudflare:iuam-challenge.js",
-                    contextCodeGeneration: {{ strings: true, wasm: false }},
-                    timeout: 5000
-                }};
-                process.stdout.write(String(
-                    require("vm").runInNewContext(challenge, context, options)
-                ));
-            "#,
-            challenge
+            domain, inner_html, challenge
         )
     }
 
@@ -146,75 +138,99 @@ impl<'a> Bypasser<'a> {
                 .args(&["-e", js])
                 .output()
                 .unwrap()
-                .stdout
-        ).unwrap()
+                .stdout,
+        )
+        .unwrap()
     }
 
-    fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue) {
+    fn request_challenge(&mut self, url: &str) -> (String, String, HeaderValue, String) {
         self.build_client();
-        if let Some(ref user_agents) = self.user_agents { self.user_agent = user_agents.random().to_string(); }
+        if let Some(ref user_agents) = self.user_agents {
+            self.user_agent = user_agents.random().to_string();
+        }
         loop {
-            match self.client
+            match self
+                .client
                 .get(url)
                 .header(USER_AGENT, self.user_agent.as_str())
-                .send() {
-                Ok(mut resp) => {
+                .send()
+            {
+                Ok(resp) => {
+                    let url = resp.url().as_str().to_owned();
+                    let cookie = resp.headers()[SET_COOKIE].to_owned();
                     match resp.text() {
                         Ok(text) => {
-                            return (
-                                text,
-                                resp.url().as_str().to_owned(),
-                                resp.headers()[SET_COOKIE].to_owned()
-                            );
+                            let path = regex::Regex::new(r#"id="challenge-form" action="([^"]*)""#)
+                                .unwrap()
+                                .captures(&text)
+                                .unwrap()[1]
+                                .into();
+                            return (text, url, cookie, path);
                         }
-                        Err(e) => println!("At request_challenge() text(), {:?}", e)
+                        Err(e) => println!("At request_challenge() text(), {:?}", e),
                     }
                 }
-                Err(e) => println!("At, request_challenge() send(), {:?}", e)
+                Err(e) => println!("At, request_challenge() send(), {:?}", e),
             }
         }
     }
 
-    fn solve_challenge(&mut self, url: &str, cookie: &HeaderValue, referer: &str, params: &[(String, String)]) -> Result<(HeaderValue, HeaderValue), &str> {
+    fn solve_challenge(
+        &mut self,
+        url: &str,
+        cookie: &HeaderValue,
+        referer: &str,
+        params: &[(String, String)],
+    ) -> Result<(HeaderValue, HeaderValue), &str> {
         let mut retry = 0u32;
         loop {
-            match self.client
-                .get(url)
+            match self
+                .client
+                .post(url)
                 .header(COOKIE, cookie)
                 .header(REFERER, referer)
                 .header(USER_AGENT, self.user_agent.as_str())
-                .query(params)
-                .send() {
-                Ok(resp) => if resp.headers().contains_key(SET_COOKIE) {
-                    return Ok((
-                        resp.headers()[SET_COOKIE].to_owned(),
-                        self.user_agent.parse().unwrap(),
-                    ));
+                .form(params)
+                .send()
+            {
+                Ok(resp) => {
+                    if resp.headers().contains_key(SET_COOKIE) {
+                        return Ok((
+                            resp.headers()[SET_COOKIE].to_owned(),
+                            self.user_agent.parse().unwrap(),
+                        ));
+                    }
                 }
-                Err(e) => println!("{:?}", e)
+                Err(e) => println!("{:?}", e),
             }
 
             retry += 1;
-            if retry == self.retry { return Err("reach max retries"); }
+            if retry == self.retry {
+                return Err("reach max retries");
+            }
         }
     }
 
     pub fn bypass(&mut self, url: &str) -> Result<(HeaderValue, HeaderValue), &str> {
-        std::thread::sleep(Duration::from_secs(self.wait as u64));
+        let (html, referer, cookie, path) = self.request_challenge(url);
 
-        let (html, referer, cookie) = self.request_challenge(url);
         let (challenge_url, domain) = {
             let url = url::Url::parse(url).unwrap();
             let domain = url.domain().unwrap().to_owned();
 
-            (format!("{}://{}/cdn-cgi/l/chk_jschl", url.scheme(), domain), domain)
+            (format!("{}://{}{}", url.scheme(), domain, path), domain)
         };
-        let params =  {
+        let params = {
             let mut p = Bypasser::parse_challenge(&html);
-            p.push((String::from("jschl_answer"), Bypasser::run_js(&Bypasser::parse_js(&html, &domain))));
+            p.push((
+                String::from("jschl_answer"),
+                Bypasser::run_js(&Bypasser::parse_js(&html, &domain)),
+            ));
 
             p
         };
+
+        std::thread::sleep(Duration::from_secs(self.wait as u64));
 
         self.solve_challenge(&challenge_url, &cookie, &referer, &params)
     }

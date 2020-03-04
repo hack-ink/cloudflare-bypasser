@@ -10,8 +10,8 @@ keywords = ["bypass", "cloudflare"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-base64 = "0.10.1"
-fake-useragent = "0.1.2"
-regex = "1.1.6"
-reqwest = "0.9.16"
-url = "1.7.2"
+base64 = "0.11.0"
+fake-useragent = "0.1.3"
+regex = "1.3.4"
+reqwest = { version = "0.10.3", features = ["blocking", "native-tls", "gzip"] }
+url = "2.1.1"

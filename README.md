@@ -19,12 +19,12 @@ fn main() {
 
     // quick start
     let mut bypasser = {
-        cloudflare_nypasser::Bypasser::new()
+        cloudflare_bypasser::Bypasser::default()
     };
 
     // customize
     let mut bypasser = {
-        cloudflare_bypasser::Bypasser::new()
+        cloudflare_bypasser::Bypasser::default()
             .retry(30)                      // retry times, it might be 10000, depends on your network environment, default 0 (infinity)
             .proxy("http://127.0.0.1:1087") // use proxy, default None
             .random_user_agent(true)        // use random user agent, default false
