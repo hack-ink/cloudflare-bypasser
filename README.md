@@ -29,7 +29,7 @@ fn main() {
             .proxy("http://127.0.0.1:1087") // use proxy, default None
             .random_user_agent(true)        // use random user agent, default false
             .user_agent("Mozilla/5.0")      // specify user agent manually, default ""
-            .wait(5);                       // cloudflare's waiting time, but in my test it can be 0, default 0
+            .wait(5)                        // cloudflare's waiting time, but in my test it can be 0, default 0
     };                           
 
     // to pass the verify both of the cookie and user agent are needed
@@ -54,7 +54,7 @@ fn main() {
                     h
                 };
                 
-                reqwest::ClientBuilder::new()
+                reqwest::blocking::ClientBuilder::new()
                     .default_headers(headers)
                     .build()
                     .unwrap()
